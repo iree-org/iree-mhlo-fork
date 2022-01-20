@@ -1,0 +1,30 @@
+name: Advance Mainline Branch
+
+on:
+  #schedule:
+  #  - cron:  '0 10,22 * * *'
+
+  workflow_dispatch:
+
+jobs:
+  advance_mainline:
+    name: "Advance mainline"
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Checking out repository
+        uses: actions/checkout@v2
+        with:
+          token: ${{ secrets.WRITE_ACCESS_TOKEN }}
+          ref: mainline
+
+      - name: Pull upstream master
+        run: |
+          git remote add upstream https://github.com/tensorflow/mlir-hlo.git
+          git fetch upstream master
+          git pull --ff-only upstream master
+
+      - name: Pushing changes
+        uses: ad-m/github-push-action@v0.6.0
+        with:
+          github_token: ${{ secrets.WRITE_ACCESS_TOKEN }}
+          branch: mainline
