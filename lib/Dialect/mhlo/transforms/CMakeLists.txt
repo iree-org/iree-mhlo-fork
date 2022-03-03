@@ -113,7 +113,7 @@ add_mlir_library(MhloToLhloConversion
   MLIRPass
   MLIRMath
   MLIRShapeOpsTransforms
-  MLIRStandardOpsTransforms
+  MLIRFuncTransforms
   MLIRTransformUtils
   MLIRTransforms
 )

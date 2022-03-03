@@ -49,7 +49,7 @@ limitations under the License.
 
 #include "mlir-hlo/Dialect/disc-ral/IR/disc_ral_ops.h"
 #include "mlir-hlo/Dialect/disc-ral/transforms/PassDetail.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/Attributes.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/BuiltinOps.h"
