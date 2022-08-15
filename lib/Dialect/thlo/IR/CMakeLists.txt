@@ -24,6 +24,7 @@ add_mlir_dialect_library(THLODialect
   MLIRGmlStFusionInterfaceIncGen
 
   LINK_LIBS PUBLIC
+  GmlStDialect
   MLIRIR
   MLIRMemRefDialect
   MLIRSideEffectInterfaces
