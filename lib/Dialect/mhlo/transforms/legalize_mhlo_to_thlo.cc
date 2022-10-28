@@ -314,18 +314,18 @@ struct ReductionPattern : public OpConversionPattern<mhlo::ReduceOp> {
     // while the thlo.reduction op expects the init values as the last
     // parameters of the 'combiner' region apply function.
     TypeConverter::SignatureConversion signatureConverter(
-        thloReduction.getNumInputs() * 2);
-    assert(thloReduction.getNumInputs() == thloReduction.getNumOutputs());
+        thloReduction.getNumDpsInputs() * 2);
+    assert(thloReduction.getNumDpsInputs() == thloReduction.getNumDpsInits());
     for (const auto& [idx, val] : llvm::enumerate(operandTypes)) {
       signatureConverter.addInputs(
-          /*origInputNo=*/idx + thloReduction.getNumInputs(),
+          /*origInputNo=*/idx + thloReduction.getNumDpsInputs(),
           // type for new operand number 'idx'.
           typeConverter->convertType(val.getElementType()));
     }
     for (const auto& [idx, val] : llvm::enumerate(initTypes)) {
       signatureConverter.addInputs(
           /*origInputNo=*/idx,
-          // type for new operand number 'idx' + thloReduction.getNumInputs()
+          // type for new operand number 'idx' + thloReduction.getNumDpsInputs()
           typeConverter->convertType(val.getElementType()));
     }
     rewriter.applySignatureConversion(&region, signatureConverter,
@@ -445,7 +445,7 @@ struct MapPattern : public OpConversionPattern<mhlo::MapOp> {
     rewriter.inlineRegionBefore(op.getComputation(), region, region.end());
 
     TypeConverter::SignatureConversion signatureConverter(
-        thloMap.getNumInputs());
+        thloMap.getNumDpsInputs());
     for (const auto& [idx, val] : llvm::enumerate(thloMap.getInputs())) {
       signatureConverter.addInputs(
           idx,
@@ -566,11 +566,11 @@ struct SortPattern : public OpConversionPattern<mhlo::SortOp> {
     Region& region = thloSort.getComparator();
     rewriter.inlineRegionBefore(op.getComparator(), region, region.end());
 
-    assert(thloSort.getNumInputs() == thloSort.getNumOutputs());
+    assert(thloSort.getNumDpsInputs() == thloSort.getNumDpsInits());
 
     // Convert the signature of the comparator.
     TypeConverter::SignatureConversion signatureConverter(
-        thloSort.getNumInputs() * 2);
+        thloSort.getNumDpsInputs() * 2);
     for (const auto& [idx, val] : llvm::enumerate(operandTypes)) {
       signatureConverter.addInputs(
           /*origInputNo=*/2 * idx,

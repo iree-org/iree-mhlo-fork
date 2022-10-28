@@ -68,7 +68,7 @@ def THLO_ConcatenateOp : THLO_DstStyleOp<"concatenate", [
 
   let extraClassDeclaration = [{
     // Implement method necessary for DestinationStyleOpInterface.
-    std::pair<int64_t, int64_t> getOutputsPositionRange() {
+    std::pair<int64_t, int64_t> getDpsInitsPositionRange() {
       int64_t getNumOperands = this->getNumOperands();
       return {getNumOperands - 1, getNumOperands};
     }
@@ -94,7 +94,7 @@ def THLO_DynamicBroadcastInDimOp : THLO_DstStyleOp<"dynamic_broadcast_in_dim", [
 
   let extraClassDeclaration = [{
     // Implement method necessary for DestinationStyleOpInterface.
-    std::pair<int64_t, int64_t> getOutputsPositionRange() {
+    std::pair<int64_t, int64_t> getDpsInitsPositionRange() {
       int64_t getNumOperands = this->getNumOperands();
       return {getNumOperands - 1, getNumOperands};
     }
@@ -124,7 +124,7 @@ def THLO_GatherOp : THLO_DstStyleOp<"gather", [
 
   let extraClassDeclaration = [{
     // Implement method necessary for DestinationStyleOpInterface.
-    std::pair<int64_t, int64_t> getOutputsPositionRange() {
+    std::pair<int64_t, int64_t> getDpsInitsPositionRange() {
       int64_t getNumOperands = this->getNumOperands();
       return {getNumOperands - 1, getNumOperands};
     }
@@ -167,7 +167,7 @@ def THLO_ScatterOp : THLO_DstStyleOp<"scatter", [
     int64_t getIndicesCount() { return getIndices().getType().getDimSize(0); }
 
     // Implement method necessary for DestinationStyleOpInterface.
-    std::pair<int64_t, int64_t> getOutputsPositionRange() {
+    std::pair<int64_t, int64_t> getDpsInitsPositionRange() {
       int64_t getNumOperands = this->getNumOperands();
       return {getNumOperands - 1, getNumOperands};
     }
@@ -223,7 +223,7 @@ def THLO_TransposeOp : THLO_DstStyleOp<"transpose", [
                              ::mlir::OperationState & odsState);
 
     // Implement method necessary for DestinationStyleOpInterface.
-    std::pair<int64_t, int64_t> getOutputsPositionRange() {
+    std::pair<int64_t, int64_t> getDpsInitsPositionRange() {
       int64_t getNumOperands = this->getNumOperands();
       return {getNumOperands - 1, getNumOperands};
     }
@@ -272,7 +272,7 @@ def THLO_ReductionOp : THLO_DstStyleOp<"reduction", [
     }
 
     // Implement method necessary for DestinationStyleOpInterface.
-    std::pair<int64_t, int64_t> getOutputsPositionRange() {
+    std::pair<int64_t, int64_t> getDpsInitsPositionRange() {
       return {getInits().size(), getNumOperands()};
     }
   }];
@@ -312,7 +312,7 @@ def THLO_MapOp : THLO_DstStyleOp<"map", [
 
   let extraClassDeclaration = [{
     mlir::OpOperandVector getOpOperandsMatchingBBargs() {
-      return getInputOperands();
+      return getDpsInputOperands();
     }
 
     static std::function<void(mlir::ImplicitLocOpBuilder &, mlir::Block &,
@@ -322,7 +322,7 @@ def THLO_MapOp : THLO_DstStyleOp<"map", [
     }
 
     // Implement method necessary for DestinationStyleOpInterface.
-    std::pair<int64_t, int64_t> getOutputsPositionRange() {
+    std::pair<int64_t, int64_t> getDpsInitsPositionRange() {
       int64_t getNumOperands = this->getNumOperands();
       return {getNumOperands - 1, getNumOperands};
     }
@@ -366,7 +366,7 @@ def THLO_SortOp : THLO_DstStyleOp<"sort", [
 
   let extraClassDeclaration = [{
     // Implement method necessary for DestinationStyleOpInterface.
-    std::pair<int64_t, int64_t> getOutputsPositionRange() {
+    std::pair<int64_t, int64_t> getDpsInitsPositionRange() {
       int64_t getNumOperands = this->getNumOperands();
       return {getNumOperands - getInits().size(), getNumOperands};
     }

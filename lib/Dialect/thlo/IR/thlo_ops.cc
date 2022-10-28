@@ -64,16 +64,16 @@ void printDstStyleOp(
     DstOpTy op, OpAsmPrinter &p,
     function_ref<SmallVector<StringRef>(DstOpTy op, OpAsmPrinter &)>
         printAttrsFn = nullptr) {
-  if (op.getNumInputs() != 0) {
+  if (op.getNumDpsInputs() != 0) {
     p << " ins(";
     llvm::interleaveComma(
-        op.getOperands().take_front(op.getNumInputs()), p,
+        op.getOperands().take_front(op.getNumDpsInputs()), p,
         [&](Value input) { p << input << " : " << input.getType(); });
     p << ")";
   }
   p << " outs(";
   llvm::interleaveComma(
-      op.getOperands().take_back(op.getNumOutputs()), p,
+      op.getOperands().take_back(op.getNumDpsInits()), p,
       [&](Value output) { p << output << " : " << output.getType(); });
   p << ")";
 
@@ -464,12 +464,13 @@ void ConcatenateOp::print(OpAsmPrinter &p) { printDstStyleOp(*this, p); }
 LogicalResult ConcatenateOp::verify() {
   int64_t concatDim = getDimension();
 
-  ShapedType inputType = getInputOperand(0)->get().getType().cast<ShapedType>();
+  ShapedType inputType =
+      getDpsInputOperand(0)->get().getType().cast<ShapedType>();
   int64_t rank = inputType.getRank();
   auto inputShape = inputType.getShape();
 
   Type outputElementType =
-      getOutputOperand(0)->get().getType().cast<ShapedType>().getElementType();
+      getDpsInitOperand(0)->get().getType().cast<ShapedType>().getElementType();
 
   for (const auto &en : llvm::enumerate(getInputs())) {
     ShapedType inputArgShapedType = en.value().getType().cast<ShapedType>();
@@ -732,7 +733,7 @@ LogicalResult ScatterOp::verify() {
   // The update computation should yield exactly 1 result.
   auto updateTerminator = cast<YieldOp>(getBody()->getTerminator());
   Type outputElementType =
-      getOutputOperand(0)->get().getType().cast<ShapedType>().getElementType();
+      getDpsInitOperand(0)->get().getType().cast<ShapedType>().getElementType();
   if (!succeeded(checkYieldOutputs(updateTerminator, outputElementType)))
     return failure();
 
@@ -1076,7 +1077,7 @@ void ReductionOp::print(OpAsmPrinter &p) {
 LogicalResult ReductionOp::verify() {
   ArrayRef<int64_t> dimensionsRef = getDimensions();
 
-  for (int64_t i = 1; i < getNumInputs(); ++i) {
+  for (int64_t i = 1; i < getNumDpsInputs(); ++i) {
     if (failed(mlir::verifyCompatibleShape(getInputs()[i].getType(),
                                            getInputs()[0].getType()))) {
       return emitOpError() << "expects all inputs to have compatible shapes. "
@@ -1085,7 +1086,7 @@ LogicalResult ReductionOp::verify() {
                            << " is not compatible with shape at input-index 0.";
     }
   }
-  for (int64_t i = 1; i < getNumOutputs(); ++i) {
+  for (int64_t i = 1; i < getNumDpsInits(); ++i) {
     if (failed(mlir::verifyCompatibleShape(getInits()[i].getType(),
                                            getInits()[0].getType()))) {
       return emitOpError()
@@ -1139,11 +1140,11 @@ LogicalResult ReductionOp::verify() {
 
   Block *block = getBody();
   if (static_cast<int64_t>(block->getArguments().size()) !=
-      getNumInputs() + getNumOutputs()) {
+      getNumDpsInputs() + getNumDpsInits()) {
     return emitOpError()
            << "number of block arguments " << block->getArguments().size()
            << " doesn't match the number of inputs plus the number of outputs "
-           << getNumInputs() + getNumOutputs();
+           << getNumDpsInputs() + getNumDpsInits();
   }
 
   // Check that the first block arguments match the element type of the inputs.
@@ -1152,7 +1153,7 @@ LogicalResult ReductionOp::verify() {
         return type.cast<ShapedType>().getElementType();
       }));
   auto blockArgumentInputTypes = llvm::to_vector<8>(
-      llvm::map_range(block->getArguments().take_front(getNumInputs()),
+      llvm::map_range(block->getArguments().take_front(getNumDpsInputs()),
                       [](BlockArgument arg) { return arg.getType(); }));
   if (blockArgumentInputTypes != inputElementTypes) {
     return emitOpError() << "input element types " << inputElementTypes
@@ -1166,7 +1167,7 @@ LogicalResult ReductionOp::verify() {
         return type.cast<ShapedType>().getElementType();
       }));
   auto blockArgumentOutputTypes = llvm::to_vector<8>(
-      llvm::map_range(block->getArguments().take_back(getNumOutputs()),
+      llvm::map_range(block->getArguments().take_back(getNumDpsInits()),
                       [](BlockArgument arg) { return arg.getType(); }));
   if (blockArgumentOutputTypes != outputElementTypes) {
     return emitOpError() << "output element types " << outputElementTypes
@@ -1174,7 +1175,7 @@ LogicalResult ReductionOp::verify() {
                          << blockArgumentOutputTypes;
   }
 
-  // The reducer should yield exactly getNumOutputs() outputs.
+  // The reducer should yield exactly getNumDpsInits() outputs.
   YieldOp blockTerminator = cast<YieldOp>(block->getTerminator());
   if (!succeeded(checkYieldOutputs(blockTerminator, outputElementTypes)))
     return failure();
@@ -1194,7 +1195,7 @@ SmallVector<StringRef> ReductionOp::getIteratorTypesArray() {
 ArrayAttr ReductionOp::getIndexingMaps() {
   SmallVector<AffineMap> affineMaps;
   int64_t inputRank = getInputs()[0].getType().cast<ShapedType>().getRank();
-  for (int64_t i = 0, e = getNumInputs(); i < e; ++i) {
+  for (int64_t i = 0, e = getNumDpsInputs(); i < e; ++i) {
     affineMaps.push_back(
         AffineMap::getMultiDimIdentityMap(inputRank, getContext()));
   }
@@ -1208,7 +1209,7 @@ ArrayAttr ReductionOp::getIndexingMaps() {
       exprs.push_back(getAffineDimExpr(i, getContext()));
     }
   }
-  for (int64_t i = 0, e = getNumOutputs(); i < e; ++i) {
+  for (int64_t i = 0, e = getNumDpsInits(); i < e; ++i) {
     affineMaps.push_back(
         AffineMap::get(inputRank, /*symbolCount=*/0, exprs, getContext()));
   }
@@ -1269,7 +1270,7 @@ LogicalResult MapOp::verify() {
 
   // The shape of each input must match the shape of the output.
   auto outputShape =
-      getOutputOperand(0)->get().getType().cast<ShapedType>().getShape();
+      getDpsInitOperand(0)->get().getType().cast<ShapedType>().getShape();
   for (Type inputArgType : TypeRange{getInputs()}) {
     auto inputElemShape = inputArgType.cast<ShapedType>().getShape();
     if (inputElemShape != outputShape) {
@@ -1282,7 +1283,7 @@ LogicalResult MapOp::verify() {
   // The mapper should yield exactly one output.
   YieldOp mapperTerminator = cast<YieldOp>(bodyBlock->getTerminator());
   Type outputElementType =
-      getOutputOperand(0)->get().getType().cast<ShapedType>().getElementType();
+      getDpsInitOperand(0)->get().getType().cast<ShapedType>().getElementType();
   if (!succeeded(checkYieldOutputs(mapperTerminator, outputElementType)))
     return failure();
 
@@ -1340,9 +1341,9 @@ LogicalResult SortOp::verify() {
 
   // Checks that the arity of the comparator is equal to twice the number of
   // inputs.
-  int64_t numInputs = getNumInputs();
-  int64_t numOutputs = getNumOutputs();
-  if (getNumOutputs() != numInputs) {
+  int64_t numInputs = getNumDpsInputs();
+  int64_t numOutputs = getNumDpsInits();
+  if (getNumDpsInits() != numInputs) {
     return emitOpError() << "expected the number of inputs " << numInputs
                          << " to match the number of outputs " << numOutputs;
   }
@@ -1449,7 +1450,7 @@ mlir::gml_st::TilingInterface SortOp::getTiledImplementation(
   SmallVector<OpFoldResult> tileOffsets = llvm::to_vector(offsets);
   SmallVector<OpFoldResult> tileSizes = llvm::to_vector(sizes);
 
-  size_t numOutputs = getNumOutputs();
+  size_t numOutputs = getNumDpsInits();
   int64_t sortDimension = getDimension();
 
   Value oneInput = getInputs().front();
