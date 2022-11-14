@@ -26,6 +26,7 @@ limitations under the License.
 #include "mhlo/IR/hlo_ops.h"
 #include "mhlo/transforms/passes.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Interfaces/SideEffectInterfaces.h"
 #include "mlir/IR/Attributes.h"
 #include "mlir/IR/Location.h"
 #include "mlir/IR/MLIRContext.h"
@@ -328,7 +329,7 @@ void transitivelyEraseUnusedSideEffectFreeOps(Operation *root,
     if (opsToEraseSet.count(op)) continue;
 
     // Erase only operations that are unused and free of side effects.
-    if (!MemoryEffectOpInterface::hasNoEffect(op) ||
+    if (!mlir::isMemoryEffectFree(op) ||
         !llvm::all_of(op->getUsers(), [opsToEraseSet](Operation *user) {
           return opsToEraseSet.count(user);
         })) {

@@ -34,6 +34,7 @@ limitations under the License.
 #include "mlir/IR/OperationSupport.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Interfaces/InferTypeOpInterface.h"
+#include "mlir/Interfaces/SideEffectInterfaces.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
@@ -202,7 +203,7 @@ struct MoveElementwiseOpsUpIntoAssumingOpPattern : public RewritePattern {
         !op->hasTrait<hlo::OpTrait::BroadcastingElementwise>()) {
       return failure();
     }
-    if (!MemoryEffectOpInterface::hasNoEffect(op)) return failure();
+    if (!mlir::isMemoryEffectFree(op)) return failure();
 
     return moveUpIntoAssumingOpMatchAndRewrite(op, rewriter);
   }
@@ -250,7 +251,7 @@ struct MoveElementwiseOpsDownIntoAssumingOpPattern : public RewritePattern {
         !op->hasTrait<hlo::OpTrait::BroadcastingElementwise>()) {
       return failure();
     }
-    if (!MemoryEffectOpInterface::hasNoEffect(op)) return failure();
+    if (!mlir::isMemoryEffectFree(op)) return failure();
 
     return moveDownIntoAssumingOpMatchAndRewrite(op, rewriter);
   }
