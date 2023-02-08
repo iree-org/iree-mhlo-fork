@@ -441,7 +441,7 @@ struct DynamicBroadcastInDimOpInterface
   AliasingOpResultList getAliasingOpResults(
       Operation *op, OpOperand & /*opOperand*/,
       const AnalysisState & /*state*/) const {
-    return {{op->getResult(0), BufferRelation::Unknown}};
+    return {{op->getResult(0), BufferRelation::Unknown, /*isDefinite=*/false}};
   }
 
   LogicalResult bufferize(Operation *op, RewriterBase &rewriter,
