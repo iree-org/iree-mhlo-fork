@@ -253,7 +253,7 @@ void updateOutputs(const TilingResult &tilingResult, ValueRange dstOperands) {
 
 }  // namespace
 
-FailureOr<TilingResult> tileUsingGmlSt(const TilingOptions &options,
+FailureOr<GMLSTTilingResult> tileUsingGmlSt(const TilingOptions &options,
                                        PatternRewriter &rewriter,
                                        TilingInterface op) {
   rewriter.setInsertionPoint(op);
@@ -302,7 +302,10 @@ FailureOr<TilingResult> tileUsingGmlSt(const TilingOptions &options,
   rewriter.setInsertionPoint(terminator);
 
   // 4. Insert the tiled implementation within the loop.
-  tilingResult.tiledOps = op.getTiledImplementation(rewriter, offsets, sizes);
+  FailureOr<TilingResult> tiledImplementation = op.getTiledImplementation(rewriter, offsets, sizes);
+  if (failed(tiledImplementation))
+    return rewriter.notifyMatchFailure(op, "failed to get tiled implementation");
+  tilingResult.tiledOps = tiledImplementation->tiledOps;
 
   // 5. Compute tiles for the insertion.
   int64_t numResults = op->getNumResults();

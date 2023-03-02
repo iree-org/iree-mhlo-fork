@@ -27,7 +27,7 @@ limitations under the License.
 namespace mlir {
 namespace gml_st {
 
-struct TilingResult {
+struct GMLSTTilingResult {
   SmallVector<Operation *> tiledOps;
   scf::ForallOp loop = nullptr;
 };
@@ -49,9 +49,9 @@ struct TilingOptions {
 
 /// Create tiled operation based on the specified tiling options. The result is
 /// equivalent to original op.
-FailureOr<TilingResult> tileUsingGmlSt(const TilingOptions &options,
-                                       PatternRewriter &rewriter,
-                                       TilingInterface op);
+FailureOr<GMLSTTilingResult> tileUsingGmlSt(const TilingOptions &options,
+                                            PatternRewriter &rewriter,
+                                            TilingInterface op);
 
 /// Populate tiling patterns.
 void populateTilingPatterns(
@@ -69,4 +69,4 @@ SmallVector<Value> getYieldedValues(scf::InParallelOp inParallelOp);
 }  // namespace gml_st
 }  // namespace mlir
 
-#endif  // MLIR_HLO_GML_ST_TRANSFORMS_TILING_TILING_H
+#endif // MLIR_HLO_GML_ST_TRANSFORMS_TILING_TILING_H
