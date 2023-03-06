@@ -16,15 +16,12 @@ limitations under the License.
 // This file implements logic for lowering MHLO dialect to SCF dialect.
 #include <utility>
 
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/StringSwitch.h"
-#include "llvm/Support/Casting.h"
 #include "mhlo/IR/hlo_ops.h"
 #include "mhlo/transforms/passes.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
-#include "mlir/Dialect/Tensor/IR/Tensor.h"  // TF:llvm-project
+#include "mlir/Dialect/Tensor/IR/Tensor.h" // TF:llvm-project
 #include "mlir/IR/Block.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/BuiltinOps.h"
@@ -39,6 +36,9 @@ limitations under the License.
 #include "mlir/Support/LLVM.h"
 #include "mlir/Support/LogicalResult.h"
 #include "mlir/Transforms/DialectConversion.h"
+#include "llvm/ADT/STLExtras.h"
+#include "llvm/ADT/StringSwitch.h"
+#include "llvm/Support/Casting.h"
 
 namespace mlir {
 namespace mhlo {
@@ -51,15 +51,16 @@ namespace {
 // All transformations in this file take mhlo blocks which end with
 // mhlo::ReturnOp and lower to SCF ops which end with scf::YieldOp. Inline an
 // entire block with the only change being return -> yield.
-void inlineMhloRegionIntoSCFRegion(PatternRewriter& rewriter, Region& mhlo,
-                                   Region& scf) {
+void inlineMhloRegionIntoSCFRegion(PatternRewriter &rewriter, Region &mhlo,
+                                   Region &scf) {
   // Remove an existing block, then move the region over.
-  if (!scf.empty()) rewriter.eraseBlock(&scf.back());
+  if (!scf.empty())
+    rewriter.eraseBlock(&scf.back());
   rewriter.inlineRegionBefore(mhlo, scf, scf.end());
   // Fix up the terminator.
   PatternRewriter::InsertionGuard guard(rewriter);
   rewriter.setInsertionPointToEnd(&scf.back());
-  auto* terminator = scf.back().getTerminator();
+  auto *terminator = scf.back().getTerminator();
   rewriter.replaceOpWithNewOp<scf::YieldOp>(terminator,
                                             terminator->getOperands());
 }
@@ -67,7 +68,7 @@ void inlineMhloRegionIntoSCFRegion(PatternRewriter& rewriter, Region& mhlo,
 // mhlo ops need inputs to be tensors, but scalar values can be a scalar tensor
 // or a 1 element tensor. To handle this, collapse shape before extracting the
 // scalar value when necessary.
-Value extractTensorValue(OpBuilder& b, Value tensor) {
+Value extractTensorValue(OpBuilder &b, Value tensor) {
   auto loc = tensor.getLoc();
   if (tensor.getType().cast<TensorType>().hasRank() &&
       tensor.getType().cast<TensorType>().getRank() != 0) {
@@ -81,9 +82,9 @@ Value extractTensorValue(OpBuilder& b, Value tensor) {
 struct WhileOpPattern : public OpConversionPattern<mhlo::WhileOp> {
   using OpConversionPattern<WhileOp>::OpConversionPattern;
 
-  LogicalResult matchAndRewrite(
-      mhlo::WhileOp op, OpAdaptor adaptor,
-      ConversionPatternRewriter& rewriter) const override {
+  LogicalResult
+  matchAndRewrite(mhlo::WhileOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
     auto loc = op.getLoc();
 
     auto newWhileOp = rewriter.create<scf::WhileOp>(loc, op.getResultTypes(),
@@ -113,9 +114,9 @@ struct WhileOpPattern : public OpConversionPattern<mhlo::WhileOp> {
 struct IfOpPattern : public OpConversionPattern<mhlo::IfOp> {
   using OpConversionPattern<IfOp>::OpConversionPattern;
 
-  LogicalResult matchAndRewrite(
-      mhlo::IfOp op, OpAdaptor adaptor,
-      ConversionPatternRewriter& rewriter) const override {
+  LogicalResult
+  matchAndRewrite(mhlo::IfOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
     auto scfIf = rewriter.create<scf::IfOp>(
         op.getLoc(), op.getResultTypes(),
         extractTensorValue(rewriter, adaptor.getPred()),
@@ -135,7 +136,7 @@ struct CaseOpPattern : public OpConversionPattern<mhlo::CaseOp> {
 
   // Recursively create if/else ops to handle each possible value in a case op.
   scf::IfOp createNestedCases(int currentIdx, CaseOp op, OpAdaptor adaptor,
-                              PatternRewriter& outerBuilder) const {
+                              PatternRewriter &outerBuilder) const {
     Location loc = op.getLoc();
     Value idxValue = adaptor.getIndex();
     auto finalIdx = op.getBranches().size() - 2;
@@ -170,17 +171,17 @@ struct CaseOpPattern : public OpConversionPattern<mhlo::CaseOp> {
     return scfIf;
   }
 
-  LogicalResult matchAndRewrite(
-      mhlo::CaseOp op, OpAdaptor adaptor,
-      ConversionPatternRewriter& rewriter) const override {
+  LogicalResult
+  matchAndRewrite(mhlo::CaseOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
     // Inline the op if there is only a default block.
     if (op.getBranches().size() == 1) {
-      Block& block = op.getBranches().front().front();
+      Block &block = op.getBranches().front().front();
       auto results = block.getTerminator()->getOperands();
       // Remove the mhlo.return terminator, then inline the block.
       rewriter.eraseOp(block.getTerminator());
-      rewriter.mergeBlockBefore(/*source=*/&block, /*dest=*/op.getOperation(),
-                                /*argValues=*/{});
+      rewriter.inlineBlockBefore(/*source=*/&block, /*dest=*/op.getOperation(),
+                                 /*argValues=*/{});
       rewriter.replaceOp(op, results);
       return success();
     }
@@ -197,13 +198,13 @@ struct LegalizeControlFlowPass
   // Perform the lowering to MLIR control flow.
   void runOnOperation() override {
     func::FuncOp f = getOperation();
-    MLIRContext* ctx = f.getContext();
+    MLIRContext *ctx = f.getContext();
 
     RewritePatternSet patterns(&getContext());
     patterns.add<WhileOpPattern, IfOpPattern, CaseOpPattern>(&getContext());
 
     mlir::ConversionTarget target(*ctx);
-    target.markUnknownOpDynamicallyLegal([](Operation*) { return true; });
+    target.markUnknownOpDynamicallyLegal([](Operation *) { return true; });
     target.addIllegalOp<mhlo::IfOp, mhlo::WhileOp, mhlo::CaseOp>();
 
     if (failed(applyPartialConversion(f, target, std::move(patterns)))) {
@@ -212,9 +213,9 @@ struct LegalizeControlFlowPass
   }
 };
 
-}  // namespace
-}  // namespace mhlo
-}  // namespace mlir
+} // namespace
+} // namespace mhlo
+} // namespace mlir
 
 std::unique_ptr<mlir::OperationPass<mlir::func::FuncOp>>
 mlir::mhlo::createLegalizeControlFlowPass() {
